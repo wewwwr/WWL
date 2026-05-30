@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+# Эта строчка убирает предупреждение и включает новую версию Node.js
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
