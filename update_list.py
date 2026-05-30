@@ -6,50 +6,79 @@ urls = [
     "https://raw.githubusercontent.com/hxehex/russia-mobile-internet-whitelist/main/whitelist.txt"
 ]
 
-# Ручные правила, которые нужно пустить НАПРЯМУЮ (DIRECT)
-combined_rules = {
+# Ручные правила, которые нужно пустить НАПРЯМУЮ
+combined_rules = [
     "DOMAIN-SUFFIX,yoomoney.ru",
     "DOMAIN-SUFFIX,tbank.ru",
     "DOMAIN-SUFFIX,oneme.ru",
     "DEST-PORT,25",
     "DEST-PORT,465",
     "DEST-PORT,587"
-}
+]
 
 # СПИСОК ИСКЛЮЧЕНИЙ: домены, которые НЕ НАДО пускать напрямую
 exclusions = {
     "another-domain.ru",
 }
 
-print("Начинаю загрузку и обработку белых списков...")
+# Умная проверка на исключения (отсекает и сам домен, и все его поддомены)
+def is_excluded(domain):
+    for ex in exclusions:
+        if domain == ex or domain.endswith('.' + ex):
+            return True
+    return False
 
+print("Начинаю загрузку и обработку списков...")
+
+# Разделяем домены и прочие правила
+domain_set = set()
+other_rules = set()
+
+def process_rule(line):
+    line = line.strip()
+    # Игнорируем пустые строки и комментарии
+    if not line or line.startswith('#') or line.startswith('//'):
+        return
+    
+    # Разбиваем строку по запятым и убираем пробелы
+    parts = [p.strip() for p in line.split(',')]
+    
+    # Сценарий 1: В строке просто домен (например "vk.com" или "*.vk.com")
+    if len(parts) == 1:
+        domain = parts[0].lower()
+        if domain.startswith("*."):
+            domain = domain[2:] # Очищаем от звездочек
+        if not is_excluded(domain):
+            domain_set.add(domain)
+            
+    # Сценарий 2: Строка с типом правила (например "DOMAIN,vk.com" или "IP-CIDR,...")
+    elif len(parts) >= 2:
+        rule_type = parts[0].upper()
+        content = parts[1].lower()
+        
+        # Если это правило касается домена, вытаскиваем сам домен
+        if rule_type in ("DOMAIN", "DOMAIN-SUFFIX"):
+            if content.startswith("*."):
+                content = content[2:]
+            if not is_excluded(content):
+                domain_set.add(content)
+        else:
+            # Технические правила (DEST-PORT, IP-CIDR, DOMAIN-KEYWORD) оставляем как есть
+            # При этом сохраняем оригинальную строку
+            other_rules.add(line)
+
+# Обрабатываем ручные правила
+for rule in combined_rules:
+    process_rule(rule)
+
+# Обрабатываем списки из сети
 for url in urls:
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=20) as response:
             content = response.read().decode('utf-8')
             for line in content.splitlines():
-                line = line.strip()
-                
-                # Игнорируем пустые строки и комментарии
-                if not line or line.startswith('#') or line.startswith('//'):
-                    continue
-                
-                # Извлекаем чистый домен для сверки с исключениями
-                clean_domain = line.split(',')[-1].strip() if ',' in line else line
-                
-                # Если домен в исключениях — пропускаем его
-                if clean_domain in exclusions:
-                    continue
-                
-                # Приводим к единому стандарту Shadowrocket без лишних пробелов
-                if ',' not in line:
-                    line = f"DOMAIN-SUFFIX,{line}"
-                else:
-                    parts = line.split(',', 1)
-                    line = f"{parts[0].strip()},{parts[1].strip()}"
-                    
-                combined_rules.add(line)
+                process_rule(line)
         print(f"Успешно обработан: {url}")
     except Exception as e:
         print(f"Ошибка при загрузке {url}: {e}")
@@ -57,24 +86,12 @@ for url in urls:
 # --- БЛОК ОПТИМИЗАЦИИ ПОДДОМЕНОВ ---
 print("Оптимизирую список доменов (удаляю избыточные поддомены)...")
 
-domain_suffixes = []
-other_rules = []
-
-# Разделяем доменные правила и порты (DEST-PORT)
-for rule in combined_rules:
-    if rule.startswith("DOMAIN-SUFFIX,"):
-        domain = rule.split(",", 1)[1].strip().lower()
-        if domain:
-            domain_suffixes.append(domain)
-    else:
-        other_rules.append(rule)
-
-# Сортируем уникальные домены по длине строки (корневые пойдут первыми)
-domain_suffixes = sorted(list(set(domain_suffixes)), key=len)
+# Сортируем домены по длине: от коротких (корневых) к длинным (поддоменам)
+sorted_domains = sorted(list(domain_set), key=len)
 
 optimized_domains = []
-for domain in domain_suffixes:
-    # Проверяем, есть ли уже родительский домен в optimized_domains
+for domain in sorted_domains:
+    # Проверяем, покрывается ли этот домен уже добавленным коротким корнем
     is_redundant = any(
         domain == root or domain.endswith('.' + root) 
         for root in optimized_domains
@@ -82,15 +99,15 @@ for domain in domain_suffixes:
     if not is_redundant:
         optimized_domains.append(domain)
 
-# Собираем финальный массив правил: порты + оптимизированные DOMAIN-SUFFIX
-final_rules = other_rules + [f"DOMAIN-SUFFIX,{d}" for d in optimized_domains]
+# Собираем финальный массив: сначала отсортированные домены, затем порты/IP
+final_rules = sorted([f"DOMAIN-SUFFIX,{d}" for d in optimized_domains]) + sorted(list(other_rules))
 
 # Сохраняем итоговый белый список
 output_filename = "my_custom_direct_list.list"
 with open(output_filename, "w", encoding="utf-8") as f:
     f.write("# Auto-generated Shadowrocket Whitelist (DIRECT)\n")
-    for rule in sorted(final_rules):
+    for rule in final_rules:
         f.write(f"{rule}\n")
 
-print(f"Готово! Избыточные поддомены отфильтрованы.")
-print(f"Всего правил после оптимизации: {len(final_rules)}")
+print(f"Готово! Избыточные поддомены вырезаны с корнем.")
+print(f"Всего уникальных правил после оптимизации: {len(final_rules)}")
