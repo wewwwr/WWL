@@ -1,7 +1,4 @@
 # Auto-generated Shadowrocket Whitelist (DIRECT)
-DEST-PORT,25
-DEST-PORT,465
-DEST-PORT,587
 DOMAIN-SUFFIX,1l-api.mail.ru
 DOMAIN-SUFFIX,1l-go.mail.ru
 DOMAIN-SUFFIX,1l-hit.mail.ru
@@ -528,3 +525,6 @@ DOMAIN-SUFFIX,yandex.net
 DOMAIN-SUFFIX,yandex.ru
 DOMAIN-SUFFIX,yastatic.net
 DOMAIN-SUFFIX,yoomoney.ru
+DEST-PORT,25
+DEST-PORT,465
+DEST-PORT,587
