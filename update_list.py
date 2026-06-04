@@ -3,7 +3,8 @@ import urllib.request
 # Исходные списки для DIRECT (белый список)
 urls = [
     "https://raw.githubusercontent.com/Master-Yoba/shadowrocket-rules/release/rules-geosite/geosite-ru-mobile-whitelist.list",
-    "https://raw.githubusercontent.com/hxehex/russia-mobile-internet-whitelist/main/whitelist.txt"
+    "https://raw.githubusercontent.com/hxehex/russia-mobile-internet-whitelist/main/whitelist.txt",
+    "https://raw.githubusercontent.com/nncat01/RCVPN-SR/refs/heads/release/rules-geosite/whitelist.list"
 ]
 
 # Ручные правила
