@@ -1,4 +1,5 @@
 import urllib.request
+import datetime
 
 # Исходные списки для DIRECT (белый список)
 urls = [
@@ -123,6 +124,11 @@ final_rules = sorted([f"DOMAIN-SUFFIX,{d}" for d in optimized_domains]) + sorted
 output_filename = "my_custom_direct_list.list"
 with open(output_filename, "w", encoding="utf-8") as f:
     f.write("# Auto-generated Shadowrocket Whitelist (DIRECT)\n")
+    
+    # Добавляем метку времени, чтобы GitHub Actions всегда видел изменения и делал коммит
+    current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    f.write(f"# Last updated: {current_time} UTC\n")
+    
     for rule in final_rules:
         f.write(f"{rule}\n")
 
